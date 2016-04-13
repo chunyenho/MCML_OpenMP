@@ -188,14 +188,18 @@ char main(int argc, char *argv[])
   FILE *input_file_ptr;
   short num_runs;	/* number of independent runs. */
   InputStruct in_parm;
+  int i;
 
   ShowVersion("Version 1.2, 1993");
   GetFnameFromArgv(argc, argv, input_filename);
   input_file_ptr = GetFile(input_filename);
   CheckParm(input_file_ptr, &in_parm);	
   num_runs = ReadNumRuns(input_file_ptr);
-  
-  while(num_runs--)  {
+ 
+   
+  //while(num_runs--)  {
+  for(i=0; i<num_runs; i++)
+  {
     ReadParm(input_file_ptr, &in_parm);
 	DoOneRun(num_runs, &in_parm);
   }
