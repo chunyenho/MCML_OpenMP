@@ -18,7 +18,7 @@
 
 #define COS90D  1.0E-6		
   /* cosine of about 1.57 - 1e-6 rad. */
-
+extern MAX_STEPS;
 
 /***********************************************************
  *	A random number generator from Numerical Recipes in C.
@@ -153,6 +153,8 @@ void LaunchPhoton(double Rspecular,
   Photon_Ptr->ux	= 0.0;	
   Photon_Ptr->uy	= 0.0;	
   Photon_Ptr->uz	= 1.0;	
+
+  Photon_Ptr->num_steps = 0;
   
   if((Layerspecs_Ptr[1].mua == 0.0) 
   && (Layerspecs_Ptr[1].mus == 0.0))  { /* glass layer. */
@@ -726,6 +728,9 @@ void HopDropSpin(InputStruct  *  In_Ptr,
 				 PhotonStruct *  Photon_Ptr,
 				 OutStruct    *  Out_Ptr)
 {
+  Photon_Ptr->num_steps++;
+  if(Photon_Ptr->num_steps > MAX_STEPS)
+     MAX_STEPS = Photon_Ptr->num_steps;
   short layer = Photon_Ptr->layer;
 
   if((In_Ptr->layerspecs[layer].mua == 0.0) 
@@ -736,5 +741,5 @@ void HopDropSpin(InputStruct  *  In_Ptr,
     HopDropSpinInTissue(In_Ptr, Photon_Ptr, Out_Ptr);
   
   if( Photon_Ptr->w < In_Ptr->Wth && !Photon_Ptr->dead) 
-    Roulette(Photon_Ptr);
+        Roulette(Photon_Ptr);
 }

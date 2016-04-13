@@ -93,6 +93,7 @@ typedef struct {
 					/* packet resides. */
   double s;			/* current step size. [cm]. */
   double sleft;		/* step size left. dimensionless [-]. */
+  int num_steps;
 } PhotonStruct;
 
 /****
