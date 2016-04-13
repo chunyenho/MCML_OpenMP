@@ -144,6 +144,7 @@ void GetFnameFromArgv(int argc,
  ****/
 void DoOneRun(short NumRuns, InputStruct *In_Ptr)
 {
+  int i;
   register long i_photon;	
 	/* index to photon. register for speed.*/
   OutStruct out_parm;		/* distribution of photons.*/
@@ -159,7 +160,9 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
   i_photon = num_photons;
   PunchTime(0, "");
     
-  do {
+//  do {
+  for (i=0; i<i_photon;i++)
+  {
     if(num_photons - i_photon == photon_rep) {
       printf("%ld photons & %hd runs left, ", i_photon, NumRuns);
       PredictDoneTime(num_photons - i_photon, num_photons);
@@ -168,8 +171,8 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
     LaunchPhoton(out_parm.Rsp, In_Ptr->layerspecs, &photon);
     do  HopDropSpin(In_Ptr, &photon, &out_parm);
     while (!photon.dead);
-  } while(--i_photon);
-    
+//  } while(--i_photon);
+  }  
 #if THINKCPROFILER
   exit(0);
 #endif
