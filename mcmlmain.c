@@ -141,6 +141,7 @@ void GetFnameFromArgv(int argc,
  ****/
 void DoOneRun(short NumRuns, InputStruct *In_Ptr)
 {
+    int i;
     register long i_photon;
     /* index to photon. register for speed.*/
     OutStruct out_parm;		/* distribution of photons.*/
@@ -157,7 +158,9 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
     i_photon = num_photons;
     PunchTime(0, "");
 
-    do {
+//    do {
+    for(i=0 ; i<i_photon; i++)
+    {
         if(num_photons - i_photon == photon_rep) {
             printf("%ld photons & %hd runs left, ", i_photon, NumRuns);
             PredictDoneTime(num_photons - i_photon, num_photons);
@@ -166,7 +169,8 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
         LaunchPhoton(out_parm.Rsp, In_Ptr->layerspecs, &photon);
         do  HopDropSpin(In_Ptr, &photon, &out_parm);
         while (!photon.dead);
-    } while(--i_photon);
+//    } while(--i_photon);
+    }
 
 #if THINKCPROFILER
     exit(0);
@@ -186,6 +190,7 @@ char main(int argc, char *argv[])
     FILE *input_file_ptr;
     short num_runs;	/* number of independent runs. */
     InputStruct in_parm;
+    int i;
 
     ShowVersion("Version 1.2, 1993");
     GetFnameFromArgv(argc, argv, input_filename);
@@ -193,7 +198,9 @@ char main(int argc, char *argv[])
     CheckParm(input_file_ptr, &in_parm);
     num_runs = ReadNumRuns(input_file_ptr);
 
-    while(num_runs--)  {
+//    while(num_runs--)  {
+    for( i=0; i<num_runs--; i++)
+    {
         ReadParm(input_file_ptr, &in_parm);
         DoOneRun(num_runs, &in_parm);
     }
