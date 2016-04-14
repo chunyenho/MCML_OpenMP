@@ -19,7 +19,8 @@
 #define COS90D  1.0E-6		
   /* cosine of about 1.57 - 1e-6 rad. */
 extern MAX_STEPS;
-
+extern tissue_num;
+extern glass_num; 
 /***********************************************************
  *	A random number generator from Numerical Recipes in C.
  ****/
@@ -734,11 +735,16 @@ void HopDropSpin(InputStruct  *  In_Ptr,
   short layer = Photon_Ptr->layer;
 
   if((In_Ptr->layerspecs[layer].mua == 0.0) 
-  && (In_Ptr->layerspecs[layer].mus == 0.0)) 
+  && (In_Ptr->layerspecs[layer].mus == 0.0)) {
 	/* glass layer. */
+    glass_num++;
     HopInGlass(In_Ptr, Photon_Ptr, Out_Ptr);
+  }
   else
+  {
+    tissue_num++;
     HopDropSpinInTissue(In_Ptr, Photon_Ptr, Out_Ptr);
+  }
   
   if( Photon_Ptr->w < In_Ptr->Wth && !Photon_Ptr->dead) 
         Roulette(Photon_Ptr);

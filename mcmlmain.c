@@ -36,7 +36,10 @@ void LaunchPhoton(double, LayerStruct *, PhotonStruct *);
 void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *);
 void SumScaleResult(InputStruct, OutStruct *);
 void WriteResult(InputStruct, OutStruct, char *);
-int MAX_STEPS=0;
+
+int MAX_STEPS = 0;
+long long tissue_num = 0;
+long long glass_num = 0;
 
 /***********************************************************
  *	If F = 0, reset the clock and return 0.
@@ -206,7 +209,11 @@ char main(int argc, char *argv[])
     ReadParm(input_file_ptr, &in_parm);
 	DoOneRun(num_runs, &in_parm);
   }
-  printf("Max Step is %d \n",MAX_STEPS);
+    
+  printf("Max Step is %d \n", MAX_STEPS);
+  printf("Tissue Num : %lld \n", tissue_num);
+  printf("Glass Num : %lld \n", glass_num);
+
   fclose(input_file_ptr);
   return(0);
 }
