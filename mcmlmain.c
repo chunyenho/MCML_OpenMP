@@ -182,6 +182,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
 
     ReportResult(*In_Ptr, out_parm);
     FreeData(*In_Ptr, &out_parm);
+    Free(tmpOut_Ptr);
 }
 
 /***********************************************************

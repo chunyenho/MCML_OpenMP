@@ -359,7 +359,7 @@ Boolean HitBoundary(PhotonStruct *  Photon_Ptr,
  ****/
 void Drop(InputStruct  *	In_Ptr,
           PhotonStruct *	Photon_Ptr,
-          OutStruct *		Out_Ptr)
+          tmpOutStruct *		tmpOut_Ptr)
 {
     double dwa;		/* absorbed weight.*/
     double x = Photon_Ptr->x;
@@ -382,7 +382,12 @@ void Drop(InputStruct  *	In_Ptr,
     Photon_Ptr->w -= dwa;
 
     /* assign dwa to the absorption array element. */
-    Out_Ptr->A_rz[ir][iz]	+= dwa;
+//    Out_Ptr->A_rz[ir][iz]	+= dwa;
+    tmpOut_Ptr->data[tmpOut_Ptr->total_steps].x = ir;
+    tmpOut_Ptr->data[tmpOut_Ptr->total_steps].y = iz;
+    tmpOut_Ptr->data[tmpOut_Ptr->total_steps].w = dwa;
+    tmpOut_Ptr->total_steps++;
+
 }
 
 /***********************************************************
@@ -470,7 +475,7 @@ double RFresnel(double n1,	/* incident refractive index.*/
 void RecordR(double			Refl,	/* reflectance. */
              InputStruct  *	In_Ptr,
              PhotonStruct *	Photon_Ptr,
-             OutStruct *	Out_Ptr)
+             tmpOutStruct *	tmpOut_Ptr)
 {
     double x = Photon_Ptr->x;
     double y = Photon_Ptr->y;
@@ -483,7 +488,11 @@ void RecordR(double			Refl,	/* reflectance. */
     if(ia>In_Ptr->na-1) ia=In_Ptr->na-1;
 
     /* assign photon to the reflection array element. */
-    Out_Ptr->Rd_ra[ir][ia] += Photon_Ptr->w*(1.0-Refl);
+//    tmpOut_Ptr->Rd_ra[ir][ia] += Photon_Ptr->w*(1.0-Refl);
+    tmpOut_Ptr->Rd_valid = 1;
+    tmpOut_Ptr->Rdra.x = ir;
+    tmpOut_Ptr->Rdra.y = ia;
+    tmpOut_Ptr->Rdra.w = Photon_Ptr->w*(1.0-Refl);
 
     Photon_Ptr->w *= Refl;
 }
@@ -498,7 +507,7 @@ void RecordR(double			Refl,	/* reflectance. */
 void RecordT(double 		Refl,
              InputStruct  *	In_Ptr,
              PhotonStruct *	Photon_Ptr,
-             OutStruct *	Out_Ptr)
+             tmpOutStruct *	tmpOut_Ptr)
 {
     double x = Photon_Ptr->x;
     double y = Photon_Ptr->y;
@@ -511,7 +520,11 @@ void RecordT(double 		Refl,
     if(ia>In_Ptr->na-1) ia=In_Ptr->na-1;
 
     /* assign photon to the transmittance array element. */
-    Out_Ptr->Tt_ra[ir][ia] += Photon_Ptr->w*(1.0-Refl);
+//    Out_Ptr->Tt_ra[ir][ia] += Photon_Ptr->w*(1.0-Refl);
+    tmpOut_Ptr->Tt_valid = 1;
+    tmpOut_Ptr->Ttra.x = ir;
+    tmpOut_Ptr->Ttra.y = ia;
+    tmpOut_Ptr->Ttra.w = Photon_Ptr->w*(1.0-Refl);
 
     Photon_Ptr->w *= Refl;
 }
@@ -537,7 +550,7 @@ void RecordT(double 		Refl,
  ****/
 void CrossUpOrNot(InputStruct  *	In_Ptr,
                   PhotonStruct *	Photon_Ptr,
-                  OutStruct *		Out_Ptr)
+                  tmpOutStruct *		tmpOut_Ptr)
 {
     double uz = Photon_Ptr->uz; /* z directional cosine. */
     double uz1;	/* cosines of transmission alpha. always */
@@ -555,7 +568,7 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
 #if PARTIALREFLECTION
     if(layer == 1 && r<1.0) {	/* partially transmitted. */
         Photon_Ptr->uz = -uz1;	/* transmitted photon. */
-        RecordR(r, In_Ptr, Photon_Ptr, Out_Ptr);
+        RecordR(r, In_Ptr, Photon_Ptr, tmpOut_Ptr);
         Photon_Ptr->uz = -uz;	/* reflected photon. */
     } else if(RandomNum() > r) { /* transmitted to layer-1. */
         Photon_Ptr->layer--;
@@ -568,7 +581,7 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
     if(RandomNum() > r) {		/* transmitted to layer-1. */
         if(layer==1)  {
             Photon_Ptr->uz = -uz1;
-            RecordR(0.0, In_Ptr, Photon_Ptr, Out_Ptr);
+            RecordR(0.0, In_Ptr, Photon_Ptr, tmpOut_Ptr);
             Photon_Ptr->dead = 1;
         } else {
             Photon_Ptr->layer--;
@@ -612,7 +625,7 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
 #if PARTIALREFLECTION
     if(layer == In_Ptr->num_layers && r<1.0) {
         Photon_Ptr->uz = uz1;
-        RecordT(r, In_Ptr, Photon_Ptr, Out_Ptr);
+        RecordT(r, In_Ptr, Photon_Ptr, tmpOut_Ptr);
         Photon_Ptr->uz = -uz;
     } else if(RandomNum() > r) { /* transmitted to layer+1. */
         Photon_Ptr->layer++;
@@ -625,7 +638,7 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
     if(RandomNum() > r) {		/* transmitted to layer+1. */
         if(layer == In_Ptr->num_layers) {
             Photon_Ptr->uz = uz1;
-            RecordT(0.0, In_Ptr, Photon_Ptr, Out_Ptr);
+            RecordT(0.0, In_Ptr, Photon_Ptr, tmpOut_Ptr);
             Photon_Ptr->dead = 1;
         } else {
             Photon_Ptr->layer++;
@@ -642,12 +655,12 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
  ****/
 void CrossOrNot(InputStruct  *	In_Ptr,
                 PhotonStruct *	Photon_Ptr,
-                OutStruct    *	Out_Ptr)
+                tmpOutStruct    *	tmpOut_Ptr)
 {
     if(Photon_Ptr->uz < 0.0)
-        CrossUpOrNot(In_Ptr, Photon_Ptr, Out_Ptr);
+        CrossUpOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr);
     else
-        CrossDnOrNot(In_Ptr, Photon_Ptr, Out_Ptr);
+        CrossDnOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr);
 }
 
 /***********************************************************
@@ -657,7 +670,7 @@ void CrossOrNot(InputStruct  *	In_Ptr,
  ****/
 void HopInGlass(InputStruct  * In_Ptr,
                 PhotonStruct * Photon_Ptr,
-                OutStruct    * Out_Ptr)
+                tmpOutStruct    * tmpOut_Ptr)
 {
     double dl;     /* step size. 1/cm */
 
@@ -667,7 +680,7 @@ void HopInGlass(InputStruct  * In_Ptr,
     } else {
         StepSizeInGlass(Photon_Ptr, In_Ptr);
         Hop(Photon_Ptr);
-        CrossOrNot(In_Ptr, Photon_Ptr, Out_Ptr);
+        CrossOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr);
     }
 }
 
@@ -687,16 +700,16 @@ void HopInGlass(InputStruct  * In_Ptr,
  ****/
 void HopDropSpinInTissue(InputStruct  *  In_Ptr,
                          PhotonStruct *  Photon_Ptr,
-                         OutStruct    *  Out_Ptr)
+                         tmpOutStruct *  tmpOut_Ptr)
 {
     StepSizeInTissue(Photon_Ptr, In_Ptr);
 
     if(HitBoundary(Photon_Ptr, In_Ptr)) {
         Hop(Photon_Ptr);	/* move to boundary plane. */
-        CrossOrNot(In_Ptr, Photon_Ptr, Out_Ptr);
+        CrossOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr);
     } else {
         Hop(Photon_Ptr);
-        Drop(In_Ptr, Photon_Ptr, Out_Ptr);
+        Drop(In_Ptr, Photon_Ptr, tmpOut_Ptr);
         Spin(In_Ptr->layerspecs[Photon_Ptr->layer].g,
              Photon_Ptr);
     }
@@ -706,16 +719,16 @@ void HopDropSpinInTissue(InputStruct  *  In_Ptr,
  ****/
 void HopDropSpin(InputStruct  *  In_Ptr,
                  PhotonStruct *  Photon_Ptr,
-                 OutStruct    *  Out_Ptr)
+                 tmpOutStruct    *  tmpOut_Ptr)
 {
     short layer = Photon_Ptr->layer;
 
     if((In_Ptr->layerspecs[layer].mua == 0.0)
             && (In_Ptr->layerspecs[layer].mus == 0.0))
         /* glass layer. */
-        HopInGlass(In_Ptr, Photon_Ptr, Out_Ptr);
+        HopInGlass(In_Ptr, Photon_Ptr, tmpOut_Ptr);
     else
-        HopDropSpinInTissue(In_Ptr, Photon_Ptr, Out_Ptr);
+        HopDropSpinInTissue(In_Ptr, Photon_Ptr, tmpOut_Ptr);
 
     if( Photon_Ptr->w < In_Ptr->Wth && !Photon_Ptr->dead)
         Roulette(Photon_Ptr);
