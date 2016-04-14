@@ -159,6 +159,30 @@ typedef struct {
 } InputStruct;
 
 /****
+ *  Structures for scoring physical quantities. 
+ *  z and r represent z and r coordinates of the 
+ *  cylindrical coordinate system. [cm]
+ *  a is the angle alpha between the photon exiting 
+ *  direction and the normal to the surfaces. [radian]
+ *  See comments of the InputStruct.
+ *  See manual for the physcial quantities.
+ ****/
+typedef struct {
+    short   x, y;
+    double  w;  
+} trace;
+
+typedef struct {
+    short  total_steps;
+    short  Rd_valid;
+    short  Tt_valid;
+    trace  data[MaxSteps]; // for Drop
+    trace  Rdra; // for RecordR
+    trace  Ttra;    // for RecordT
+} tmpOutStruct;
+
+
+/****
  *	Structures for scoring physical quantities. 
  *	z and r represent z and r coordinates of the 
  *	cylindrical coordinate system. [cm]
