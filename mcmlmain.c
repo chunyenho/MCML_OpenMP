@@ -147,6 +147,8 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
     OutStruct out_parm;		/* distribution of photons.*/
     PhotonStruct photon;
     long num_photons = In_Ptr->num_photons, photon_rep=10;
+    tmpOutStruct* tmpOut_Ptr;
+    InittmpOut_Ptr(tmpOut_Ptr, In_Ptr->num_photons);
 
 #if THINKCPROFILER
     InitProfile(200,200);
