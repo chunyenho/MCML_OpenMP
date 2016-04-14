@@ -75,6 +75,8 @@
 #define CHANCE 0.1		/* Chance of roulette survival. */
 #define STRLEN 256		/* String length. */
 
+#define MAXSTEP 2000
+
 #define Boolean char
 
 #define SIGN(x) ((x)>=0 ? 1:-1)
@@ -176,7 +178,7 @@ typedef struct {
     short  total_steps;
     short  Rd_valid;
     short  Tt_valid;
-    trace  data[MaxSteps]; // for Drop
+    trace  data[MAXSTEP]; // for Drop
     trace  Rdra; // for RecordR
     trace  Ttra;    // for RecordT
 } tmpOutStruct;

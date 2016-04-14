@@ -148,7 +148,8 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
     PhotonStruct photon;
     long num_photons = In_Ptr->num_photons, photon_rep=10;
     tmpOutStruct* tmpOut_Ptr;
-    InittmpOut_Ptr(tmpOut_Ptr, In_Ptr->num_photons);
+    tmpOut_Ptr = (tmpOutStruct *)malloc(sizeof(tmpOutStruct) * num_photons);
+    memset(tmpOut_Ptr, 0, sizeof(tmpOutStruct) * num_photons);
 
 #if THINKCPROFILER
     InitProfile(200,200);
@@ -156,6 +157,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
 #endif
 
     InitOutputData(*In_Ptr, &out_parm);
+    //Rspecular only one time
     out_parm.Rsp = Rspecular(In_Ptr->layerspecs);
     i_photon = num_photons;
     PunchTime(0, "");
@@ -169,7 +171,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
             photon_rep *= 10;
         }
         LaunchPhoton(out_parm.Rsp, In_Ptr->layerspecs, &photon);
-        do  HopDropSpin(In_Ptr, &photon, &out_parm);
+        do  HopDropSpin(In_Ptr, &photon, tmpOut_Ptr[i]);
         while (!photon.dead);
 //    } while(--i_photon);
     }

@@ -130,7 +130,6 @@ double Rspecular(LayerStruct * Layerspecs_Ptr)
         r2 = temp*temp;
         r1 = r1 + (1-r1)*(1-r1)*r2/(1-r1*r2);
     }
-
     return (r1);
 }
 
