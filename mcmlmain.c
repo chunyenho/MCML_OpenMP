@@ -20,6 +20,8 @@
 #if THINKCPROFILER
 #include <profile.h>
 #include <console.h>
+#include <omp.h>
+
 #endif
 
 #include "mcml.h"
@@ -158,7 +160,7 @@ void GetFnameFromArgv(int argc,
 void DoOneRun(short NumRuns, InputStruct *In_Ptr)
 {
     int i;
-    register long i_photon;
+    long i_photon;
     /* index to photon. register for speed.*/
     OutStruct out_parm;		/* distribution of photons.*/
     PhotonStruct photon;
@@ -166,7 +168,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
     tmpOutStruct* tmpOut_Ptr;
     tmpOut_Ptr = (tmpOutStruct *)malloc(sizeof(tmpOutStruct) * num_photons);
     memset(tmpOut_Ptr, 0, sizeof(tmpOutStruct) * num_photons);
-
+    printf("4");
 #if THINKCPROFILER
     InitProfile(200,200);
     cecho2file("prof.rpt",0, stdout);
@@ -179,15 +181,17 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
     PunchTime(0, "");
 
 //    do {
+#pragma omp parallel for private(photon)
     for(i=0 ; i<i_photon; i++)
     {
-        if(num_photons - i_photon == photon_rep) {
+        
+        /*if(num_photons - i_photon == photon_rep) {
             printf("%ld photons & %hd runs left, ", i_photon, NumRuns);
             PredictDoneTime(num_photons - i_photon, num_photons);
             photon_rep *= 10;
-        }
+        }*/
         LaunchPhoton(out_parm.Rsp, In_Ptr->layerspecs, &photon);
-        do  HopDropSpin(In_Ptr, &photon, &tmpOut_Ptr[i]);
+        do    HopDropSpin(In_Ptr, &photon, &tmpOut_Ptr[i]);
         while (!photon.dead);
 //    } while(--i_photon);
     }
@@ -195,8 +199,8 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
 #if THINKCPROFILER
     exit(0);
 #endif
-    for (i=0; i<num_photons; i++)
-        collect(&out_parm, &tmpOut_Ptr[i]);
+//    for (i=0; i<num_photons; i++)
+//        collect(&out_parm, &tmpOut_Ptr[i]);
     ReportResult(*In_Ptr, out_parm);
     FreeData(*In_Ptr, &out_parm);
     free(tmpOut_Ptr);
@@ -219,7 +223,11 @@ char main(int argc, char *argv[])
     input_file_ptr = GetFile(input_filename);
     CheckParm(input_file_ptr, &in_parm);
     num_runs = ReadNumRuns(input_file_ptr);
-
+    #pragma omp parallel 
+    #pragma omp master
+    {
+        printf("%d threads start... \n", omp_get_num_threads());
+    }
 //    while(num_runs--)  {
     for( i=0; i<num_runs--; i++)
     {
