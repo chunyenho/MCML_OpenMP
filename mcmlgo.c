@@ -608,7 +608,7 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
  ****/
 void CrossDnOrNot(InputStruct  *	In_Ptr,
                   PhotonStruct *	Photon_Ptr,
-                  OutStruct *		Out_Ptr)
+                  tmpOutStruct *		tmpOut_Ptr)
 {
     double uz = Photon_Ptr->uz; /* z directional cosine. */
     double uz1;	/* cosines of transmission alpha. */

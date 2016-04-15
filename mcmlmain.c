@@ -33,10 +33,26 @@ void InitOutputData(InputStruct, OutStruct *);
 void FreeData(InputStruct, OutStruct *);
 double Rspecular(LayerStruct * );
 void LaunchPhoton(double, LayerStruct *, PhotonStruct *);
-void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *);
+void HopDropSpin(InputStruct  *,PhotonStruct *,tmpOutStruct *);
 void SumScaleResult(InputStruct, OutStruct *);
 void WriteResult(InputStruct, OutStruct, char *);
+void collect(OutStruct *Out_Ptr, tmpOutStruct *cl_OUTstruct);
 
+// Collect Function
+void collect(OutStruct *Out_Ptr, tmpOutStruct *cl_OUTstruct)
+{
+    int i;
+    if (cl_OUTstruct->Rd_valid)
+        Out_Ptr->Rd_ra[cl_OUTstruct->Rdra.x][cl_OUTstruct->Rdra.y]+=cl_OUTstruct->Rdra.w;
+    if (cl_OUTstruct->Tt_valid)
+        Out_Ptr->Tt_ra[cl_OUTstruct->Ttra.x][cl_OUTstruct->Ttra.y]+=cl_OUTstruct->Ttra.w;        
+    for (i=0; i<cl_OUTstruct->total_steps; i++)
+    {
+//        if (item == 43752 && (i == 702 || i == 703))
+//            printf("i = %d, x = %d, y = %d, w = %E\n", i, cl_OUTstruct->data[i].x, cl_OUTstruct->data[i].y, cl_OUTstruct->data[i].w);
+        Out_Ptr->A_rz[cl_OUTstruct->data[i].x][cl_OUTstruct->data[i].y]+=cl_OUTstruct->data[i].w;
+    }
+}
 
 /***********************************************************
  *	If F = 0, reset the clock and return 0.
@@ -171,7 +187,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
             photon_rep *= 10;
         }
         LaunchPhoton(out_parm.Rsp, In_Ptr->layerspecs, &photon);
-        do  HopDropSpin(In_Ptr, &photon, tmpOut_Ptr[i]);
+        do  HopDropSpin(In_Ptr, &photon, &tmpOut_Ptr[i]);
         while (!photon.dead);
 //    } while(--i_photon);
     }
@@ -179,10 +195,11 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
 #if THINKCPROFILER
     exit(0);
 #endif
-
+    for (i=0; i<num_photons; i++)
+        collect(&out_parm, &tmpOut_Ptr[i]);
     ReportResult(*In_Ptr, out_parm);
     FreeData(*In_Ptr, &out_parm);
-    Free(tmpOut_Ptr);
+    free(tmpOut_Ptr);
 }
 
 /***********************************************************
