@@ -19,7 +19,6 @@
 #define COS90D  1.0E-6
 /* cosine of about 1.57 - 1e-6 rad. */
 
-
 /***********************************************************
  *	A random number generator from Numerical Recipes in C.
  ****/
@@ -35,7 +34,6 @@ float ran3(int *idum)
     static int iff=0;
     long mj,mk;
     int i,ii,k;
-
     if (*idum < 0 || iff == 0) {
         iff=1;
         mj=MSEED-(*idum < 0 ? -*idum : *idum);
@@ -171,14 +169,14 @@ void LaunchPhoton(double Rspecular,
  *
  *	Returns the cosine of the polar deflection angle theta.
  ****/
-double SpinTheta(double g)
+double SpinTheta(double g, unsigned int * rand_seed)
 {
     double cost;
 
     if(g == 0.0)
-        cost = 2*RandomNum() -1;
+        cost = 2*((double)rand_r(rand_seed))/RAND_MAX -1;
     else {
-        double temp = (1-g*g)/(1-g+2*g*RandomNum());
+        double temp = (1-g*g)/(1-g+2*g*((double)rand_r(rand_seed))/RAND_MAX);
         cost = (1+g*g - temp*temp)/(2*g);
         if(cost < -1) cost = -1;
         else if(cost > 1) cost = 1;
@@ -201,7 +199,8 @@ double SpinTheta(double g)
  *  	for pi-2pi sin(psi) is -
  ****/
 void Spin(double g,
-          PhotonStruct * Photon_Ptr)
+          PhotonStruct * Photon_Ptr,
+          unsigned int * rand_seed  )
 {
     double cost, sint;	/* cosine and sine of the */
     /* polar deflection angle theta. */
@@ -212,11 +211,11 @@ void Spin(double g,
     double uz = Photon_Ptr->uz;
     double psi;
 
-    cost = SpinTheta(g);
+    cost = SpinTheta(g, rand_seed);
     sint = sqrt(1.0 - cost*cost);
     /* sqrt() is faster than sin(). */
 
-    psi = 2.0*PI*RandomNum(); /* spin psi 0-2pi. */
+    psi = 2.0*PI*((double)rand_r(rand_seed))/RAND_MAX; /* spin psi 0-2pi. */
     cosp = cos(psi);
     if(psi<PI)
         sinp = sqrt(1.0 - cosp*cosp);
@@ -291,7 +290,8 @@ void StepSizeInGlass(PhotonStruct *  Photon_Ptr,
  *	In_Ptr is the input parameters.
  ****/
 void StepSizeInTissue(PhotonStruct * Photon_Ptr,
-                      InputStruct  * In_Ptr)
+                      InputStruct  * In_Ptr,
+                      unsigned int * rand_seed )
 {
     short  layer = Photon_Ptr->layer;
     double mua = In_Ptr->layerspecs[layer].mua;
@@ -300,7 +300,7 @@ void StepSizeInTissue(PhotonStruct * Photon_Ptr,
     if(Photon_Ptr->sleft == 0.0) {  /* make a new step. */
         double rnd;
 
-        do rnd = RandomNum();
+        do rnd = ((double)rand_r(rand_seed))/RAND_MAX;
         while( rnd <= 0.0 );    /* avoid zero. */
         Photon_Ptr->s = -log(rnd)/(mua+mus);
     } else {	/* take the leftover. */
@@ -394,11 +394,11 @@ void Drop(InputStruct  *	In_Ptr,
  *	The photon weight is small, and the photon packet tries
  *	to survive a roulette.
  ****/
-void Roulette(PhotonStruct * Photon_Ptr)
+void Roulette(PhotonStruct * Photon_Ptr, unsigned int * rand_seed)
 {
     if(Photon_Ptr->w == 0.0)
         Photon_Ptr->dead = 1;
-    else if(RandomNum() < CHANCE) /* survived the roulette.*/
+    else if(((double)rand_r(rand_seed))/RAND_MAX < CHANCE) /* survived the roulette.*/
         Photon_Ptr->w /= CHANCE;
     else
         Photon_Ptr->dead = 1;
@@ -550,7 +550,8 @@ void RecordT(double 		Refl,
  ****/
 void CrossUpOrNot(InputStruct  *	In_Ptr,
                   PhotonStruct *	Photon_Ptr,
-                  tmpOutStruct *		tmpOut_Ptr)
+                  tmpOutStruct *		tmpOut_Ptr,
+                  unsigned int * rand_seed)
 {
     double uz = Photon_Ptr->uz; /* z directional cosine. */
     double uz1;	/* cosines of transmission alpha. always */
@@ -570,7 +571,7 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
         Photon_Ptr->uz = -uz1;	/* transmitted photon. */
         RecordR(r, In_Ptr, Photon_Ptr, tmpOut_Ptr);
         Photon_Ptr->uz = -uz;	/* reflected photon. */
-    } else if(RandomNum() > r) { /* transmitted to layer-1. */
+    } else if(((double)rand_r(rand_seed))/RAND_MAX > r) { /* transmitted to layer-1. */
         Photon_Ptr->layer--;
         Photon_Ptr->ux *= ni/nt;
         Photon_Ptr->uy *= ni/nt;
@@ -578,7 +579,7 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
     } else			      		/* reflected. */
         Photon_Ptr->uz = -uz;
 #else
-    if(RandomNum() > r) {		/* transmitted to layer-1. */
+    if(((double)rand_r(rand_seed))/RAND_MAX > r) {		/* transmitted to layer-1. */
         if(layer==1)  {
             Photon_Ptr->uz = -uz1;
             RecordR(0.0, In_Ptr, Photon_Ptr, tmpOut_Ptr);
@@ -608,7 +609,9 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
  ****/
 void CrossDnOrNot(InputStruct  *	In_Ptr,
                   PhotonStruct *	Photon_Ptr,
-                  tmpOutStruct *		tmpOut_Ptr)
+                  tmpOutStruct *		tmpOut_Ptr,
+                  unsigned int * rand_seed )
+
 {
     double uz = Photon_Ptr->uz; /* z directional cosine. */
     double uz1;	/* cosines of transmission alpha. */
@@ -627,7 +630,7 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
         Photon_Ptr->uz = uz1;
         RecordT(r, In_Ptr, Photon_Ptr, tmpOut_Ptr);
         Photon_Ptr->uz = -uz;
-    } else if(RandomNum() > r) { /* transmitted to layer+1. */
+    } else if(((double)rand_r(rand_seed))/RAND_MAX > r) { /* transmitted to layer+1. */
         Photon_Ptr->layer++;
         Photon_Ptr->ux *= ni/nt;
         Photon_Ptr->uy *= ni/nt;
@@ -635,7 +638,7 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
     } else 						/* reflected. */
         Photon_Ptr->uz = -uz;
 #else
-    if(RandomNum() > r) {		/* transmitted to layer+1. */
+    if(((double)rand_r(rand_seed))/RAND_MAX > r) {		/* transmitted to layer+1. */
         if(layer == In_Ptr->num_layers) {
             Photon_Ptr->uz = uz1;
             RecordT(0.0, In_Ptr, Photon_Ptr, tmpOut_Ptr);
@@ -655,12 +658,13 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
  ****/
 void CrossOrNot(InputStruct  *	In_Ptr,
                 PhotonStruct *	Photon_Ptr,
-                tmpOutStruct    *	tmpOut_Ptr)
+                tmpOutStruct    *	tmpOut_Ptr,
+                unsigned int * rand_seed)
 {
     if(Photon_Ptr->uz < 0.0)
-        CrossUpOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr);
+        CrossUpOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr, rand_seed);
     else
-        CrossDnOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr);
+        CrossDnOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr, rand_seed);
 }
 
 /***********************************************************
@@ -670,7 +674,8 @@ void CrossOrNot(InputStruct  *	In_Ptr,
  ****/
 void HopInGlass(InputStruct  * In_Ptr,
                 PhotonStruct * Photon_Ptr,
-                tmpOutStruct    * tmpOut_Ptr)
+                tmpOutStruct    * tmpOut_Ptr,
+                unsigned int * rand_seed )
 {
     double dl;     /* step size. 1/cm */
 
@@ -680,7 +685,7 @@ void HopInGlass(InputStruct  * In_Ptr,
     } else {
         StepSizeInGlass(Photon_Ptr, In_Ptr);
         Hop(Photon_Ptr);
-        CrossOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr);
+        CrossOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr, rand_seed);
     }
 }
 
@@ -700,18 +705,19 @@ void HopInGlass(InputStruct  * In_Ptr,
  ****/
 void HopDropSpinInTissue(InputStruct  *  In_Ptr,
                          PhotonStruct *  Photon_Ptr,
-                         tmpOutStruct *  tmpOut_Ptr)
+                         tmpOutStruct *  tmpOut_Ptr,
+                         unsigned int *  rand_seed)
 {
-    StepSizeInTissue(Photon_Ptr, In_Ptr);
+    StepSizeInTissue(Photon_Ptr, In_Ptr, rand_seed);
 
     if(HitBoundary(Photon_Ptr, In_Ptr)) {
         Hop(Photon_Ptr);	/* move to boundary plane. */
-        CrossOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr);
+        CrossOrNot(In_Ptr, Photon_Ptr, tmpOut_Ptr, rand_seed);
     } else {
         Hop(Photon_Ptr);
         Drop(In_Ptr, Photon_Ptr, tmpOut_Ptr);
         Spin(In_Ptr->layerspecs[Photon_Ptr->layer].g,
-             Photon_Ptr);
+             Photon_Ptr, rand_seed);
     }
 }
 
@@ -719,17 +725,18 @@ void HopDropSpinInTissue(InputStruct  *  In_Ptr,
  ****/
 void HopDropSpin(InputStruct  *  In_Ptr,
                  PhotonStruct *  Photon_Ptr,
-                 tmpOutStruct    *  tmpOut_Ptr)
+                 tmpOutStruct *  tmpOut_Ptr,
+                 unsigned int *  rand_seed )
 {
     short layer = Photon_Ptr->layer;
 
     if((In_Ptr->layerspecs[layer].mua == 0.0)
             && (In_Ptr->layerspecs[layer].mus == 0.0))
         /* glass layer. */
-        HopInGlass(In_Ptr, Photon_Ptr, tmpOut_Ptr);
+        HopInGlass(In_Ptr, Photon_Ptr, tmpOut_Ptr, rand_seed);
     else
-        HopDropSpinInTissue(In_Ptr, Photon_Ptr, tmpOut_Ptr);
+        HopDropSpinInTissue(In_Ptr, Photon_Ptr, tmpOut_Ptr, rand_seed);
 
     if( Photon_Ptr->w < In_Ptr->Wth && !Photon_Ptr->dead)
-        Roulette(Photon_Ptr);
+        Roulette(Photon_Ptr, rand_seed);
 }

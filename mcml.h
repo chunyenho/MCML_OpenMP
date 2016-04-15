@@ -83,6 +83,7 @@
 
 /****************** Stuctures *****************************/
 
+
 /****
  *	Structure used to describe a photon packet.
  ****/
