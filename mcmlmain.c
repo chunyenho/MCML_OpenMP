@@ -18,7 +18,7 @@
 #define GNUCC 0
 
 /* the number of photons in a batch */
-#define NUM_PHOTONS_PER_BATCH 102400 
+#define NUM_PHOTONS_PER_BATCH 102400
 
 #if THINKCPROFILER
 #include <profile.h>
@@ -176,9 +176,8 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
     //Initial random seed for rand_r()
     unsigned int *rand_seed;
     rand_seed = (unsigned int *)malloc(sizeof(unsigned int) * num_threads);
-    for (i = 0 ; i < num_threads ; i++ )
-    {
-        rand_seed[i] = (unsigned int) (time(NULL) ^ i);    
+    for (i = 0 ; i < num_threads ; i++ ) {
+        rand_seed[i] = (unsigned int) (time(NULL) ^ i);
     }
 //    for (i = 0 ; i <num_threads; i++)
 //        printf ("===========>%f", (double)rand_r(&rand_seed[i])/ RAND_MAX );
@@ -193,8 +192,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
     out_parm.Rsp = Rspecular(In_Ptr->layerspecs);
     i_photon = num_photons;
     PunchTime(0, "");
-    for( i=0 ; i<num_photons/NUM_PHOTONS_PER_BATCH ; i++)
-    {
+    for( i=0 ; i<num_photons/NUM_PHOTONS_PER_BATCH ; i++) {
 //    do {
         memset(tmpOut_Ptr, 0, sizeof(tmpOutStruct) * NUM_PHOTONS_PER_BATCH);
         #pragma omp parallel for private(photon)
@@ -209,7 +207,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
             while (!photon.dead);
         }
 #if THINKCPROFILER
-    exit(0);
+        exit(0);
 #endif
         for (j=0; j<NUM_PHOTONS_PER_BATCH; j++)
             collect(&out_parm, &tmpOut_Ptr[j]);
@@ -240,7 +238,7 @@ char main(int argc, char *argv[])
     num_runs = ReadNumRuns(input_file_ptr);
     printf("Input the number of threads : ");
     scanf("%d", &num_threads);
-    omp_set_num_threads(num_threads);    
+    omp_set_num_threads(num_threads);
 
     #pragma omp parallel
     #pragma omp master
