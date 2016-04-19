@@ -22,6 +22,7 @@
 #include <console.h>
 #endif
 
+#include <omp.h>
 #include "mcml.h"
 
 /*	Declare before they are used in main(). */
@@ -33,10 +34,10 @@ void InitOutputData(InputStruct, OutStruct *);
 void FreeData(InputStruct, OutStruct *);
 double Rspecular(LayerStruct * );
 void LaunchPhoton(double, LayerStruct *, PhotonStruct *);
-void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *);
+void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *, unsigned int *);
 void SumScaleResult(InputStruct, OutStruct *);
 void WriteResult(InputStruct, OutStruct, char *);
-void CollectResult(OutStruct *, OutStruct *);
+void CollectResult(InputStruct , OutStruct *, OutStruct *);
 
 /***********************************************************
  *	If F = 0, reset the clock and return 0.
@@ -139,7 +140,7 @@ void GetFnameFromArgv(int argc,
 /***********************************************************
  *	Execute Monte Carlo simulation for one independent run.
  ****/
-void DoOneRun(short NumRuns, InputStruct *In_Ptr, short num_threads)
+void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
 {
     int i;
     register long i_photon;
@@ -155,40 +156,47 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, short num_threads)
     InitProfile(200,200);
     cecho2file("prof.rpt",0, stdout);
 #endif
-    for( i = 0 ; i < num_threads ; i++ )
-    {
+
+    //Initial Output Data
+    for( i = 0 ; i < num_threads ; i++ ) {
         InitOutputData(*In_Ptr, &out_parm[i]);
         out_parm[i].Rsp = Rspecular(In_Ptr->layerspecs);
     }
-    i_photon = num_photons;
-    PunchTime(0, "");
-#pragma omp parallel private(photon)
-{
-    int tid = omp_get_thread_num();
-    
-    #pragma omp for 
-    for (i = 0 ; i < num_photon ; i++ )
-    {    
-        if(num_photons - i_photon == photon_rep) {
-            printf("%ld photons & %hd runs left, ", i_photon, NumRuns);
-            PredictDoneTime(num_photons - i_photon, num_photons);
-            photon_rep *= 10;
-        }
-        LaunchPhoton(out_parm.Rsp, In_Ptr->layerspecs, &photon);
-        do  HopDropSpin(In_Ptr, &photon, &out_parm[tid]);
-        while (!photon.dead);
+
+    //Initial Random Seed
+    unsigned int *rand_seed;
+    rand_seed = (unsigned int *)malloc(sizeof(unsigned int) * num_threads);
+    for (i = 0 ; i < num_threads ; i++ ) {
+        rand_seed[i] = (unsigned int) (time(NULL) ^ i);
     }
-}
+
+    PunchTime(0, "");
+    #pragma omp parallel private(photon)
+    {
+        int tid = omp_get_thread_num();
+
+        #pragma omp for
+        for (i = 0 ; i < num_photons ; i++ ) {
+            if(num_photons - i_photon == photon_rep) {
+                printf("%ld photons & %hd runs left, ", i_photon, NumRuns);
+                PredictDoneTime(num_photons - i_photon, num_photons);
+                photon_rep *= 10;
+            }
+            LaunchPhoton(out_parm[tid].Rsp, In_Ptr->layerspecs, &photon);
+            do  HopDropSpin(In_Ptr, &photon, &out_parm[tid], &rand_seed[tid]);
+            while (!photon.dead);
+        }
+    }
 
 #if THINKCPROFILER
     exit(0);
 #endif
 
     for( i = 0 ; i < num_threads-1 ; i++ )
-        CollectResult(&out_parm[0], &out_parm[i]);
-    ReportResult(*In_Ptr, out_parm[0]);    
-    for( i = 0 ; i < num_threads ; i++ )
-        FreeData(*In_Ptr, &out_parm[i]);
+        CollectResult(*In_Ptr, &out_parm[0], &out_parm[i]);
+    ReportResult(*In_Ptr, out_parm[0]);
+//    for( i = 0 ; i < num_threads ; i++ )
+//        FreeData(*In_Ptr, &out_parm[i]);
 }
 
 /***********************************************************
@@ -201,6 +209,7 @@ char main(int argc, char *argv[])
     FILE *input_file_ptr;
     short num_runs;	/* number of independent runs. */
     InputStruct in_parm;
+    int num_threads;
 
     ShowVersion("Version 1.2, 1993");
     GetFnameFromArgv(argc, argv, input_filename);
@@ -208,9 +217,19 @@ char main(int argc, char *argv[])
     CheckParm(input_file_ptr, &in_parm);
     num_runs = ReadNumRuns(input_file_ptr);
 
+    printf("Input the number of threads : ");
+    scanf("%d", &num_threads);
+    omp_set_num_threads(num_threads);
+
+    #pragma omp parallel
+    #pragma omp master
+    {
+        printf("%d threads start... \n", omp_get_num_threads());
+    }
+
     while(num_runs--)  {
         ReadParm(input_file_ptr, &in_parm);
-        DoOneRun(num_runs, &in_parm);
+        DoOneRun(num_runs, &in_parm, num_threads);
     }
 
     fclose(input_file_ptr);

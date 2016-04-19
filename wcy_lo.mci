@@ -10,7 +10,7 @@
 
 ### Specify data for run 1
 wcy_lo.mco	A				# output filename, ASCII/Binary
-102400					# No. of photons
+1024000					# No. of photons
 0.01	0.02					# dz, dr
 200	500	100				# No. of dz, dr & da.
 
