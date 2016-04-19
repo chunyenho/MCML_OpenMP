@@ -539,6 +539,23 @@ void CheckParm(FILE* File_Ptr, InputStruct * In_Ptr)
     rewind(File_Ptr);
 }
 
+void CollectResult(InputStruct * In_Parm, OutStruct * Out_Ptr1, OutStruct * Out_Ptr2)
+{
+    int i, j;
+    short nz = In_Parm.nz;
+    short nr = In_Parm.nr;
+    short na = In_Parm.na;
+    for (i = 0; i < nr; i++) 
+        for (j = 0; j < na ; j++)
+        {
+            Out_Ptr1->Rd_ra[i][j] += Out_Ptr2->Rd_ra[i][j];
+            Out_Ptr1->Tt_ra[i][j] += Out_Ptr2->Tt_ra[i][j];
+        }
+    for (i = 0; i < nr ; i++) 
+        for (j = 0; j < nz ; j++)
+            Out_Ptr->A_rz[i][j] += Out_Ptr2->A_rz[i][j];
+            
+}
 
 /***********************************************************
  *	Allocate the arrays in OutStruct for one run, and
@@ -1124,3 +1141,4 @@ void WriteResult(InputStruct In_Parm,
 
     fclose(file);
 }
+

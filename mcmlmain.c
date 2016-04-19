@@ -36,7 +36,7 @@ void LaunchPhoton(double, LayerStruct *, PhotonStruct *);
 void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *);
 void SumScaleResult(InputStruct, OutStruct *);
 void WriteResult(InputStruct, OutStruct, char *);
-
+void CollectResult(OutStruct *, OutStruct *);
 
 /***********************************************************
  *	If F = 0, reset the clock and return 0.
@@ -139,11 +139,15 @@ void GetFnameFromArgv(int argc,
 /***********************************************************
  *	Execute Monte Carlo simulation for one independent run.
  ****/
-void DoOneRun(short NumRuns, InputStruct *In_Ptr)
+void DoOneRun(short NumRuns, InputStruct *In_Ptr, short num_threads)
 {
+    int i;
     register long i_photon;
     /* index to photon. register for speed.*/
-    OutStruct out_parm;		/* distribution of photons.*/
+    // Declare out_parm[num_threads]. (out_parm[0] for suming up all results)
+    OutStruct * out_parm;		/* distribution of photons.*/
+    out_parm = (OutStruct *)malloc(sizeof(OutStruct) * num_threads);
+
     PhotonStruct photon;
     long num_photons = In_Ptr->num_photons, photon_rep=10;
 
@@ -151,29 +155,40 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
     InitProfile(200,200);
     cecho2file("prof.rpt",0, stdout);
 #endif
-
-    InitOutputData(*In_Ptr, &out_parm);
-    out_parm.Rsp = Rspecular(In_Ptr->layerspecs);
+    for( i = 0 ; i < num_threads ; i++ )
+    {
+        InitOutputData(*In_Ptr, &out_parm[i]);
+        out_parm[i].Rsp = Rspecular(In_Ptr->layerspecs);
+    }
     i_photon = num_photons;
     PunchTime(0, "");
-
-    do {
+#pragma omp parallel private(photon)
+{
+    int tid = omp_get_thread_num();
+    
+    #pragma omp for 
+    for (i = 0 ; i < num_photon ; i++ )
+    {    
         if(num_photons - i_photon == photon_rep) {
             printf("%ld photons & %hd runs left, ", i_photon, NumRuns);
             PredictDoneTime(num_photons - i_photon, num_photons);
             photon_rep *= 10;
         }
         LaunchPhoton(out_parm.Rsp, In_Ptr->layerspecs, &photon);
-        do  HopDropSpin(In_Ptr, &photon, &out_parm);
+        do  HopDropSpin(In_Ptr, &photon, &out_parm[tid]);
         while (!photon.dead);
-    } while(--i_photon);
+    }
+}
 
 #if THINKCPROFILER
     exit(0);
 #endif
 
-    ReportResult(*In_Ptr, out_parm);
-    FreeData(*In_Ptr, &out_parm);
+    for( i = 0 ; i < num_threads-1 ; i++ )
+        CollectResult(&out_parm[0], &out_parm[i]);
+    ReportResult(*In_Ptr, out_parm[0]);    
+    for( i = 0 ; i < num_threads ; i++ )
+        FreeData(*In_Ptr, &out_parm[i]);
 }
 
 /***********************************************************
