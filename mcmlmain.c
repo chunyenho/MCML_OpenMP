@@ -23,6 +23,7 @@
 #endif
 
 #include "mcml.h"
+#include "omp.h"
 
 /*	Declare before they are used in main(). */
 FILE *GetFile(char *);
@@ -33,7 +34,7 @@ void InitOutputData(InputStruct, OutStruct *);
 void FreeData(InputStruct, OutStruct *);
 double Rspecular(LayerStruct * );
 void LaunchPhoton(double, LayerStruct *, PhotonStruct *);
-void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *);
+void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *, unsigned *);
 void SumScaleResult(InputStruct, OutStruct *);
 void WriteResult(InputStruct, OutStruct, char *);
 
@@ -144,6 +145,7 @@ void GetFnameFromArgv(int argc,
  ****/
 void DoOneRun(short NumRuns, InputStruct *In_Ptr)
 {
+int num_threads=12;
   register long i_photon;	
 	/* index to photon. register for speed.*/
   OutStruct out_parm;		/* distribution of photons.*/
@@ -158,17 +160,24 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr)
   out_parm.Rsp = Rspecular(In_Ptr->layerspecs);	
   i_photon = num_photons;
   PunchTime(0, "");
-    
-  do {
-    if(num_photons - i_photon == photon_rep) {
-      printf("%ld photons & %hd runs left, ", i_photon, NumRuns);
-      PredictDoneTime(num_photons - i_photon, num_photons);
-      photon_rep *= 10;
+
+    //Initial Random Seed
+    unsigned int *rand_seed;
+    rand_seed = (unsigned int *)malloc(sizeof(unsigned int) * num_threads);
+    for (int i = 0 ; i < num_threads ; i++ ) {
+        rand_seed[i] = (unsigned int) (time(NULL) ^ i);
     }
+
+#pragma omp parallel 
+#pragma omp master
+printf("t%d\n", omp_get_num_threads());
+    
+#pragma omp parallel for private(photon)
+  for(int i=0;i<num_photons;i++){
     LaunchPhoton(out_parm.Rsp, In_Ptr->layerspecs, &photon);
-    do  HopDropSpin(In_Ptr, &photon, &out_parm);
+    do  HopDropSpin(In_Ptr, &photon, &out_parm, &rand_seed[omp_get_thread_num()]);
     while (!photon.dead);
-  } while(--i_photon);
+  }
     
 #if THINKCPROFILER
   exit(0);
