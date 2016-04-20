@@ -27,7 +27,8 @@
 #include <limits.h>
 
 #endif
-
+#include <sys/time.h>
+#include <time.h>
 #include "mcml.h"
 
 /*	Declare before they are used in main(). */
@@ -43,6 +44,15 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads);
 void SumScaleResult(InputStruct, OutStruct *);
 void WriteResult(InputStruct, OutStruct, char *);
 void collect(OutStruct *Out_Ptr, tmpOutStruct *cl_OUTstruct);
+
+static double dtime()
+{
+    double tseconds = 0.0;
+    struct timeval mytime;
+    gettimeofday(&mytime,(struct timezone *) 0);
+    tseconds = (double) (mytime.tv_sec + (double)mytime.tv_usec * 1.0e-6);
+    return (tseconds) ;
+}
 
 // Collect Function
 void collect(OutStruct *Out_Ptr, tmpOutStruct *cl_OUTstruct)
@@ -164,6 +174,10 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
 {
     int i, j;
     long i_photon;
+    double t_0, t_1, t_2, t_3, t_4, t_5,  t_mem_set= 0.0, t_collect = 0.0, t_kernel = 0.0;
+
+    // time 0
+    t_0 = dtime();
     /* index to photon. register for speed.*/
     OutStruct out_parm;		/* distribution of photons.*/
     PhotonStruct photon;
@@ -192,9 +206,15 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
     out_parm.Rsp = Rspecular(In_Ptr->layerspecs);
     i_photon = num_photons;
     PunchTime(0, "");
+    // time 1
+    t_1 = dtime();
     for( i=0 ; i<num_photons/NUM_PHOTONS_PER_BATCH ; i++) {
-//    do {
+        // time 2
+        t_2 = dtime();
         memset(tmpOut_Ptr, 0, sizeof(tmpOutStruct) * NUM_PHOTONS_PER_BATCH);
+        // time 3
+        t_3 = dtime();
+        t_mem_set += t_3 - t_2;
         #pragma omp parallel for private(photon)
         for(j=0 ; j<NUM_PHOTONS_PER_BATCH; j++) {
             /*if(num_photons - i_photon == photon_rep) {
@@ -209,9 +229,21 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
 #if THINKCPROFILER
         exit(0);
 #endif
+        // time 4
+        t_4 = dtime();
+        t_kernel += t_4 - t_3;
         for (j=0; j<NUM_PHOTONS_PER_BATCH; j++)
             collect(&out_parm, &tmpOut_Ptr[j]);
+        // time 5
+        t_5 = dtime();
+        t_collect += t_5 - t_4;
     }
+    printf("Initial time    : %3.3f (s)\n", t_1 - t_0 );
+    printf("Kernel  time    : %3.3f (s)\n", t_kernel );
+    printf("Collection time : %3.3f (s)\n", t_collect );
+
+    printf("Memset time     : %3.3f (s)\n", t_mem_set);
+
     ReportResult(*In_Ptr, out_parm);
     FreeData(*In_Ptr, &out_parm);
     free(tmpOut_Ptr);
