@@ -16,6 +16,7 @@
 
 /* GNU cc does not support difftime() and CLOCKS_PER_SEC.*/
 #define GNUCC 0
+#define PROFILE 1
 
 #if THINKCPROFILER
 #include <profile.h>
@@ -24,6 +25,8 @@
 
 #include <omp.h>
 #include "mcml.h"
+#include <sys/time.h>
+#include <time.h>
 
 /*	Declare before they are used in main(). */
 FILE *GetFile(char *);
@@ -38,6 +41,15 @@ void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *, unsigned int *);
 void SumScaleResult(InputStruct, OutStruct *);
 void WriteResult(InputStruct, OutStruct, char *);
 void CollectResult(InputStruct , OutStruct *, OutStruct *);
+
+static double dtime()
+{
+    double tseconds = 0.0;
+    struct timeval mytime;
+    gettimeofday(&mytime,(struct timezone *) 0);
+    tseconds = (double) (mytime.tv_sec + (double)mytime.tv_usec * 1.0e-6);
+    return (tseconds) ;
+}
 
 /***********************************************************
  *	If F = 0, reset the clock and return 0.
@@ -142,6 +154,10 @@ void GetFnameFromArgv(int argc,
  ****/
 void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
 {
+    double t_0, t_1, t_2, t_3;
+    // time 0
+    t_0 = dtime();
+
     int i;
     register long i_photon;
     /* index to photon. register for speed.*/
@@ -156,7 +172,6 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
     InitProfile(200,200);
     cecho2file("prof.rpt",0, stdout);
 #endif
-
     //Initial Output Data
     for( i = 0 ; i < num_threads ; i++ ) {
         InitOutputData(*In_Ptr, &out_parm[i]);
@@ -169,6 +184,8 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
     for (i = 0 ; i < num_threads ; i++ ) {
         rand_seed[i] = (unsigned int) (time(NULL) ^ i);
     }
+    // time 1
+    t_1 = dtime();
 
     PunchTime(0, "");
     #pragma omp parallel private(photon)
@@ -188,12 +205,21 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
         }
     }
 
+    // time 2
+    t_2 = dtime();
+
 #if THINKCPROFILER
     exit(0);
 #endif
 
     for( i = 0 ; i < num_threads-1 ; i++ )
         CollectResult(*In_Ptr, &out_parm[0], &out_parm[i]);
+    // time 3
+    t_3 = dtime();
+    printf("Initial time    : %3.3f (s)\n", t_1 - t_0 );
+    printf("Kernel  time    : %3.3f (s)\n", t_2 - t_1 );
+    printf("Collection time : %3.3f (s)\n", t_3 - t_2 );
+
     ReportResult(*In_Ptr, out_parm[0]);
 //    for( i = 0 ; i < num_threads ; i++ )
 //        FreeData(*In_Ptr, &out_parm[i]);
