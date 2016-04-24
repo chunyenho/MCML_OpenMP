@@ -192,7 +192,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
     {
         int tid = omp_get_thread_num();
 
-        #pragma omp for
+        #pragma omp for schedule(dynamic,50)
         for (i = 0 ; i < num_photons ; i++ ) {
             if(num_photons - i_photon == photon_rep) {
                 printf("%ld photons & %hd runs left, ", i_photon, NumRuns);
