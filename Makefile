@@ -1,4 +1,4 @@
-CC = gcc
+CC = icc
 FLAGS = -fopenmp -O3 -vec-report2 
 MIC_FLAGS = -fopenmp -O3 -vec-report2 -mmic
 INCLUDE = .

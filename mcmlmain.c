@@ -23,6 +23,8 @@
 #endif
 
 #include "mcml.h"
+#include <sys/time.h>
+#include <time.h>
 #include "omp.h"
 
 /*	Declare before they are used in main(). */
@@ -38,6 +40,14 @@ void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *, unsigned *);
 void SumScaleResult(InputStruct, OutStruct *);
 void WriteResult(InputStruct, OutStruct, char *);
 
+static double dtime()
+{
+double tseconds = 0.0;
+struct timeval mytime;
+gettimeofday(&mytime,(struct timezone *) 0);
+tseconds = (double) (mytime.tv_sec + (double)mytime.tv_usec * 1.0e-6);
+return (tseconds) ;
+}
 
 /***********************************************************
  *	If F = 0, reset the clock and return 0.
@@ -145,17 +155,19 @@ void GetFnameFromArgv(int argc,
  ****/
 void DoOneRun(short NumRuns, InputStruct *In_Ptr)
 {
-int num_threads=12;
-  register long i_photon;	
+  int num_threads=12;
+  register long i_photon;
+  int i;	
 	/* index to photon. register for speed.*/
   OutStruct out_parm;		/* distribution of photons.*/
   PhotonStruct photon;
   long num_photons = In_Ptr->num_photons, photon_rep=10;
+  double t_0, t_1, t_2, t_3, t_4;
 
 #if THINKCPROFILER
   InitProfile(200,200); cecho2file("prof.rpt",0, stdout);
 #endif
-    
+  t_0 = dtime();  
   InitOutputData(*In_Ptr, &out_parm);
   out_parm.Rsp = Rspecular(In_Ptr->layerspecs);	
   i_photon = num_photons;
@@ -164,25 +176,26 @@ int num_threads=12;
     //Initial Random Seed
     unsigned int *rand_seed;
     rand_seed = (unsigned int *)malloc(sizeof(unsigned int) * num_threads);
-    for (int i = 0 ; i < num_threads ; i++ ) {
+    for (i = 0 ; i < num_threads ; i++ ) {
         rand_seed[i] = (unsigned int) (time(NULL) ^ i);
     }
 
 #pragma omp parallel 
 #pragma omp master
 printf("t%d\n", omp_get_num_threads());
-    
+    t_1 = dtime();
 #pragma omp parallel for private(photon)
-  for(int i=0;i<num_photons;i++){
+  for(i=0;i<num_photons;i++){
     LaunchPhoton(out_parm.Rsp, In_Ptr->layerspecs, &photon);
     do  HopDropSpin(In_Ptr, &photon, &out_parm, &rand_seed[omp_get_thread_num()]);
     while (!photon.dead);
   }
-    
+    t_2 = dtime();
 #if THINKCPROFILER
   exit(0);
 #endif
-    
+    printf("Initial time    : %3.3f (s)\n", t_1 - t_0 );
+    printf("Kernel time     : %3.3f (s)\n", t_2 - t_1 );
   ReportResult(*In_Ptr, out_parm);
   FreeData(*In_Ptr, &out_parm);
 }
