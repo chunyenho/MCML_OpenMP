@@ -177,8 +177,12 @@ double SpinTheta(double g, unsigned int *  rand_seed)
     double cost;
 
     if(g == 0.0)
+    {
+	*rand_seed = 5531;
         cost = 2*((double)rand_r(rand_seed))/RAND_MAX -1;
+    }
     else {
+	*rand_seed = 5531;
         double temp = (1-g*g)/(1-g+2*g*((double)rand_r(rand_seed))/RAND_MAX);
         cost = (1+g*g - temp*temp)/(2*g);
         if(cost < -1) cost = -1;
@@ -218,7 +222,10 @@ void Spin(double g,
     sint = sqrt(1.0 - cost*cost);
     /* sqrt() is faster than sin(). */
 
-    psi = 2.0*PI*((double)rand_r(rand_seed))/RAND_MAX; /* spin psi 0-2pi. */
+    *rand_seed = 5531;
+    double test = (double)rand_r(rand_seed);
+//    printf("======>%lf \n",test);
+    psi = 2.0*PI*test/RAND_MAX; /* spin psi 0-2pi. */
     cosp = cos(psi);
     if(psi<PI)
         sinp = sqrt(1.0 - cosp*cosp);
@@ -303,7 +310,14 @@ void StepSizeInTissue(PhotonStruct * Photon_Ptr,
     if(Photon_Ptr->sleft == 0.0) {  /* make a new step. */
         double rnd;
 
-        do rnd = ((double)rand_r(rand_seed))/RAND_MAX;
+        do 
+	{
+		
+		*rand_seed = 5531;
+    double test = (double)rand_r(rand_seed);
+//    printf("======>%lf \n",test);
+		rnd = test/RAND_MAX;
+	}
         while( rnd <= 0.0 );    /* avoid zero. */
         Photon_Ptr->s = -log(rnd)/(mua+mus);
     } else {	/* take the leftover. */
@@ -393,10 +407,13 @@ void Drop(InputStruct  *	In_Ptr,
  *	to survive a roulette.
  ****/
 void Roulette(PhotonStruct * Photon_Ptr, unsigned int *  rand_seed)
-{
+{	
+    *rand_seed = 5531;
+    double test = (double)rand_r(rand_seed);
+//    printf("======>%lf \n",test);
     if(Photon_Ptr->w == 0.0)
         Photon_Ptr->dead = 1;
-    else if(((double)rand_r(rand_seed))/RAND_MAX < CHANCE) /* survived the roulette.*/
+    else if(test/RAND_MAX < CHANCE) /* survived the roulette.*/
         Photon_Ptr->w /= CHANCE;
     else
         Photon_Ptr->dead = 1;
@@ -551,6 +568,7 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
     double ni = In_Ptr->layerspecs[layer].n;
     double nt = In_Ptr->layerspecs[layer-1].n;
 
+   *rand_seed = 5531;
     /* Get r. */
     if( - uz <= In_Ptr->layerspecs[layer].cos_crit0)
         r=1.0;		      /* total internal reflection. */
@@ -609,11 +627,13 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
     double ni = In_Ptr->layerspecs[layer].n;
     double nt = In_Ptr->layerspecs[layer+1].n;
 
+   *rand_seed = 5531;
     /* Get r. */
     if( uz <= In_Ptr->layerspecs[layer].cos_crit1)
         r=1.0;		/* total internal reflection. */
     else r = RFresnel(ni, nt, uz, &uz1);
 
+	*rand_seed = 5531;
 #if PARTIALREFLECTION
     if(layer == In_Ptr->num_layers && r<1.0) {
         Photon_Ptr->uz = uz1;
