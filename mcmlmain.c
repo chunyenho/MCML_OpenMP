@@ -212,7 +212,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
     exit(0);
 #endif
 
-    for( i = 0 ; i < num_threads-1 ; i++ )
+    for( i = 1 ; i < num_threads ; i++ )
         CollectResult(*In_Ptr, &out_parm[0], &out_parm[i]);
     // time 3
     t_3 = dtime();
