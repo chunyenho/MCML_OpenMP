@@ -191,7 +191,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
     #pragma omp parallel private(photon)
     {
         int tid = omp_get_thread_num();
-
+	unsigned int seed = rand_seed[tid];
         #pragma omp for schedule(dynamic,50)
         for (i = 0 ; i < num_photons ; i++ ) {
             if(num_photons - i_photon == photon_rep) {
@@ -200,7 +200,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
                 photon_rep *= 10;
             }
             LaunchPhoton(out_parm[tid].Rsp, In_Ptr->layerspecs, &photon);
-            do  HopDropSpin(In_Ptr, &photon, &out_parm[tid], &rand_seed[tid]);
+            do  HopDropSpin(In_Ptr, &photon, &out_parm[tid], &seed);
             while (!photon.dead);
         }
     }
