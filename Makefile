@@ -1,6 +1,6 @@
 CC = icc
-FLAGS = -fopenmp -O3 -vec-report2 -no-vec 
-MIC_FLAGS = -fopenmp -O3 -vec-report2 -mmic -no-vec
+FLAGS = -fopenmp -O3 -vec-report2  
+MIC_FLAGS = -fopenmp -O3 -vec-report2 -mmic 
 INCLUDE = .
 
 

@@ -37,7 +37,7 @@ void InitOutputData(InputStruct, OutStruct *);
 void FreeData(InputStruct, OutStruct *);
 double Rspecular(LayerStruct * );
 void LaunchPhoton(double, LayerStruct *, PhotonStruct *);
-void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *, unsigned int *);
+void HopDropSpin(InputStruct  *,PhotonStruct *,OutStruct *, unsigned int *, int *,char *);
 void SumScaleResult(InputStruct, OutStruct *);
 void WriteResult(InputStruct, OutStruct, char *);
 void CollectResult(InputStruct , OutStruct *, OutStruct *);
@@ -190,8 +190,14 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
     PunchTime(0, "");
     #pragma omp parallel private(photon)
     {
-        int tid = omp_get_thread_num();
-	unsigned int seed = rand_seed[tid];
+        int tid = omp_get_thread_num(), j;
+	unsigned int vec_seed[16], result[16];
+	char count = 0;
+	#pragma omp simd
+	for(j = 0; j < 16; j++)
+	{
+		vec_seed[j] = rand_seed[j];
+	}
         #pragma omp for schedule(dynamic,50)
         for (i = 0 ; i < num_photons ; i++ ) {
             if(num_photons - i_photon == photon_rep) {
@@ -200,7 +206,7 @@ void DoOneRun(short NumRuns, InputStruct *In_Ptr, int num_threads)
                 photon_rep *= 10;
             }
             LaunchPhoton(out_parm[tid].Rsp, In_Ptr->layerspecs, &photon);
-            do  HopDropSpin(In_Ptr, &photon, &out_parm[tid], &seed);
+            do  HopDropSpin(In_Ptr, &photon, &out_parm[tid], &vec_seed, &result, &count);
             while (!photon.dead);
         }
     }

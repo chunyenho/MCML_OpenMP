@@ -19,84 +19,58 @@
 #define COS90D  1.0E-6
 /* cosine of about 1.57 - 1e-6 rad. */
 
-
-/***********************************************************
- *	A random number generator from Numerical Recipes in C.
- ****/
-#define MBIG 1000000000
-#define MSEED 161803398
-#define MZ 0
-#define FAC 1.0E-9
-
-float ran3(int *idum)
+/* This algorithm is mentioned in the ISO C standard, here extended
+ *    for 32 bits.  */
+int rand_r (unsigned int *seed)
 {
-    static int inext,inextp;
-    static long ma[56];
-    static int iff=0;
-    long mj,mk;
-    int i,ii,k;
+    unsigned int next = *seed;
+    int result;
 
-    if (*idum < 0 || iff == 0) {
-        iff=1;
-        mj=MSEED-(*idum < 0 ? -*idum : *idum);
-        mj %= MBIG;
-        ma[55]=mj;
-        mk=1;
-        for (i=1; i<=54; i++) {
-            ii=(21*i) % 55;
-            ma[ii]=mk;
-            mk=mj-mk;
-            if (mk < MZ) mk += MBIG;
-            mj=ma[ii];
-        }
-        for (k=1; k<=4; k++)
-            for (i=1; i<=55; i++) {
-                ma[i] -= ma[1+(i+30) % 55];
-                if (ma[i] < MZ) ma[i] += MBIG;
-            }
-        inext=0;
-        inextp=31;
-        *idum=1;
-    }
-    if (++inext == 56) inext=1;
-    if (++inextp == 56) inextp=1;
-    mj=ma[inext]-ma[inextp];
-    if (mj < MZ) mj += MBIG;
-    ma[inext]=mj;
-    return mj*FAC;
+    next *= 1103515245;
+    next += 12345;
+    result = (unsigned int) (next / 65536) % 2048;
+
+    next *= 1103515245;
+    next += 12345;
+    result <<= 10;
+    result ^= (unsigned int) (next / 65536) % 1024;
+
+    next *= 1103515245;
+    next += 12345;
+    result <<= 10;
+    result ^= (unsigned int) (next / 65536) % 1024;
+
+    *seed = next;
+
+    return result;
 }
 
-#undef MBIG
-#undef MSEED
-#undef MZ
-#undef FAC
-
-
-/***********************************************************
- *	Generate a random number between 0 and 1.  Take a
- *	number as seed the first time entering the function.
- *	The seed is limited to 1<<15.
- *	We found that when idum is too large, ran3 may return
- *	numbers beyond 0 and 1.
- ****/
-double RandomNum(void)
+/* Vectorized random function for MIC. */
+int vec_rand_r (unsigned int * seed, int * result, char * count)
 {
-    static Boolean first_time=1;
-    static int idum;	/* seed for ran3. */
+	if (*count == 0)
+	{
+		int i;
+		#pragma simd
+		for (i = 0; i < 16; i++)	
+		{
+			seed[i] *= 1103515245;
+			seed[i] += 12345;
+    			result[i] = (unsigned int) (seed[i] / 65536) % 2048;
 
-    if(first_time) {
-#if STANDARDTEST /* Use fixed seed to test the program. */
-        idum = - 1;
-#else
-        idum = -(int)time(NULL)%(1<<15);
-        /* use 16-bit integer as the seed. */
-#endif
-        ran3(&idum);
-        first_time = 0;
-        idum = 1;
-    }
+    			seed[i] *= 1103515245;
+    			seed[i] += 12345;
+    			result[i] <<= 10;
+    			result[i] ^= (unsigned int) (seed[i] / 65536) % 1024;
 
-    return( (double)ran3(&idum) );
+    			seed[i] *= 1103515245;
+    			seed[i] += 12345;
+    			result[i] <<= 10;
+    			result[i] ^= (unsigned int) (seed[i] / 65536) % 1024;
+		}
+		return result[0];
+	}
+	return result[*count];
 }
 
 /***********************************************************
@@ -172,14 +146,21 @@ void LaunchPhoton(double Rspecular,
  *
  *	Returns the cosine of the polar deflection angle theta.
  ****/
-double SpinTheta(double g, unsigned int *  rand_seed)
+double SpinTheta(double g, unsigned int *  rand_seed,                 int          *  result,
+                 char          *  count)
 {
     double cost;
 
     if(g == 0.0)
-        cost = 2*((double)rand_r(rand_seed))/RAND_MAX -1;
+    {
+        cost = 2*((double)vec_rand_r(rand_seed, result, count))/RAND_MAX -1;
+        *count ++;
+	*count %= 16;
+    }
     else {
-        double temp = (1-g*g)/(1-g+2*g*((double)rand_r(rand_seed))/RAND_MAX);
+        double temp = (1-g*g)/(1-g+2*g*((double)vec_rand_r(rand_seed, result, count))/RAND_MAX);
+	*count ++;
+        *count %= 16;
         cost = (1+g*g - temp*temp)/(2*g);
         if(cost < -1) cost = -1;
         else if(cost > 1) cost = 1;
@@ -203,7 +184,9 @@ double SpinTheta(double g, unsigned int *  rand_seed)
  ****/
 void Spin(double g,
           PhotonStruct * Photon_Ptr,
-          unsigned int *  rand_seed)
+          unsigned int *  rand_seed,
+                 int          *  result,
+                 char          *  count)
 {
     double cost, sint;	/* cosine and sine of the */
     /* polar deflection angle theta. */
@@ -214,11 +197,13 @@ void Spin(double g,
     double uz = Photon_Ptr->uz;
     double psi;
 
-    cost = SpinTheta(g, rand_seed);
+    cost = SpinTheta(g, rand_seed, result, count);
     sint = sqrt(1.0 - cost*cost);
     /* sqrt() is faster than sin(). */
 
-    psi = 2.0*PI*((double)rand_r(rand_seed))/RAND_MAX; /* spin psi 0-2pi. */
+    psi = 2.0*PI*((double)vec_rand_r(rand_seed, result, count))/RAND_MAX; /* spin psi 0-2pi. */
+    *count ++;
+    *count %= 16;
     cosp = cos(psi);
     if(psi<PI)
         sinp = sqrt(1.0 - cosp*cosp);
@@ -294,7 +279,9 @@ void StepSizeInGlass(PhotonStruct *  Photon_Ptr,
  ****/
 void StepSizeInTissue(PhotonStruct * Photon_Ptr,
                       InputStruct  * In_Ptr,
-                      unsigned int *  rand_seed)
+                      unsigned int *  rand_seed,
+                 int          *  result,
+                 char          *  count)
 {
     short  layer = Photon_Ptr->layer;
     double mua = In_Ptr->layerspecs[layer].mua;
@@ -303,7 +290,11 @@ void StepSizeInTissue(PhotonStruct * Photon_Ptr,
     if(Photon_Ptr->sleft == 0.0) {  /* make a new step. */
         double rnd;
 
-        do rnd = ((double)rand_r(rand_seed))/RAND_MAX;
+        do{
+		rnd = ((double)vec_rand_r(rand_seed, result, count))/RAND_MAX;
+		*count ++;
+        	*count %= 16;
+	}
         while( rnd <= 0.0 );    /* avoid zero. */
         Photon_Ptr->s = -log(rnd)/(mua+mus);
     } else {	/* take the leftover. */
@@ -392,14 +383,18 @@ void Drop(InputStruct  *	In_Ptr,
  *	The photon weight is small, and the photon packet tries
  *	to survive a roulette.
  ****/
-void Roulette(PhotonStruct * Photon_Ptr, unsigned int *  rand_seed)
+void Roulette(PhotonStruct * Photon_Ptr, unsigned int *  rand_seed, int * result, char * count)
 {
     if(Photon_Ptr->w == 0.0)
         Photon_Ptr->dead = 1;
-    else if(((double)rand_r(rand_seed))/RAND_MAX < CHANCE) /* survived the roulette.*/
-        Photon_Ptr->w /= CHANCE;
-    else
-        Photon_Ptr->dead = 1;
+    else {
+    	if(((double)vec_rand_r(rand_seed, result, count))/RAND_MAX < CHANCE) /* survived the roulette.*/
+        	Photon_Ptr->w /= CHANCE;
+    	else
+        	Photon_Ptr->dead = 1;
+	*count ++;
+        *count %= 16;
+    }
 }
 
 /***********************************************************
@@ -541,7 +536,9 @@ void RecordT(double 		Refl,
 void CrossUpOrNot(InputStruct  *	In_Ptr,
                   PhotonStruct *	Photon_Ptr,
                   OutStruct *		Out_Ptr,
-                  unsigned int *  rand_seed)
+                  unsigned int *  rand_seed,
+                 int          *  result,
+                 char          *  count)
 {
     double uz = Photon_Ptr->uz; /* z directional cosine. */
     double uz1;	/* cosines of transmission alpha. always */
@@ -561,15 +558,22 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
         Photon_Ptr->uz = -uz1;	/* transmitted photon. */
         RecordR(r, In_Ptr, Photon_Ptr, Out_Ptr);
         Photon_Ptr->uz = -uz;	/* reflected photon. */
-    } else if(((double)rand_r(rand_seed))/RAND_MAX > r) { /* transmitted to layer-1. */
-        Photon_Ptr->layer--;
-        Photon_Ptr->ux *= ni/nt;
-        Photon_Ptr->uy *= ni/nt;
-        Photon_Ptr->uz = -uz1;
-    } else			      		/* reflected. */
-        Photon_Ptr->uz = -uz;
+    } 
+    else 
+    {
+	if(((double)vec_rand_r(rand_seed, result, count))/RAND_MAX > r) { /* transmitted to layer-1. */
+        	Photon_Ptr->layer--;
+	        Photon_Ptr->ux *= ni/nt;
+	        Photon_Ptr->uy *= ni/nt;
+	        Photon_Ptr->uz = -uz1;
+        } 
+        else			      		/* reflected. */
+        	Photon_Ptr->uz = -uz;
+	*count ++;
+        *count %= 16;
+    }
 #else
-    if(((double)rand_r(rand_seed))/RAND_MAX > r) {		/* transmitted to layer-1. */
+    if(((double)vec_rand_r(rand_seed, result, count))/RAND_MAX > r) {		/* transmitted to layer-1. */
         if(layer==1)  {
             Photon_Ptr->uz = -uz1;
             RecordR(0.0, In_Ptr, Photon_Ptr, Out_Ptr);
@@ -582,6 +586,8 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
         }
     } else 						/* reflected. */
         Photon_Ptr->uz = -uz;
+    *count ++;
+    *count %= 16;
 #endif
 }
 
@@ -600,7 +606,9 @@ void CrossUpOrNot(InputStruct  *	In_Ptr,
 void CrossDnOrNot(InputStruct  *	In_Ptr,
                   PhotonStruct *	Photon_Ptr,
                   OutStruct *		Out_Ptr,
-                  unsigned int *  rand_seed)
+                  unsigned int *  rand_seed,
+                 int          *  result,
+                 char          *  count)
 {
     double uz = Photon_Ptr->uz; /* z directional cosine. */
     double uz1;	/* cosines of transmission alpha. */
@@ -619,15 +627,20 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
         Photon_Ptr->uz = uz1;
         RecordT(r, In_Ptr, Photon_Ptr, Out_Ptr);
         Photon_Ptr->uz = -uz;
-    } else if(((double)rand_r(rand_seed))/RAND_MAX > r) { /* transmitted to layer+1. */
-        Photon_Ptr->layer++;
-        Photon_Ptr->ux *= ni/nt;
-        Photon_Ptr->uy *= ni/nt;
-        Photon_Ptr->uz = uz1;
-    } else 						/* reflected. */
-        Photon_Ptr->uz = -uz;
+    } else {
+	 if(((double)vec_rand_r(rand_seed, result, count))/RAND_MAX > r) { /* transmitted to layer+1. */
+        	Photon_Ptr->layer++;
+	        Photon_Ptr->ux *= ni/nt;
+	        Photon_Ptr->uy *= ni/nt;
+	        Photon_Ptr->uz = uz1;
+    	} 
+	else 						/* reflected. */
+        	Photon_Ptr->uz = -uz;
+	*count ++;
+        *count %= 16;
+   }
 #else
-    if(((double)rand_r(rand_seed))/RAND_MAX > r) {		/* transmitted to layer+1. */
+    if(((double)vec_rand_r(rand_seed, result, count))/RAND_MAX > r) {		/* transmitted to layer+1. */
         if(layer == In_Ptr->num_layers) {
             Photon_Ptr->uz = uz1;
             RecordT(0.0, In_Ptr, Photon_Ptr, Out_Ptr);
@@ -640,6 +653,8 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
         }
     } else 						/* reflected. */
         Photon_Ptr->uz = -uz;
+    *count ++;
+    *count %= 16;
 #endif
 }
 
@@ -648,12 +663,14 @@ void CrossDnOrNot(InputStruct  *	In_Ptr,
 void CrossOrNot(InputStruct  *	In_Ptr,
                 PhotonStruct *	Photon_Ptr,
                 OutStruct    *	Out_Ptr,
-                unsigned int *  rand_seed)
+                unsigned int *  rand_seed,
+                 int          *  result,
+                 char          *  count)
 {
     if(Photon_Ptr->uz < 0.0)
-        CrossUpOrNot(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed);
+        CrossUpOrNot(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed, result, count);
     else
-        CrossDnOrNot(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed);
+        CrossDnOrNot(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed, result, count);
 }
 
 /***********************************************************
@@ -664,7 +681,9 @@ void CrossOrNot(InputStruct  *	In_Ptr,
 void HopInGlass(InputStruct  * In_Ptr,
                 PhotonStruct * Photon_Ptr,
                 OutStruct    * Out_Ptr,
-                unsigned int *  rand_seed)
+                unsigned int *  rand_seed,
+                 int          *  result,
+                 char          *  count)
 {
     double dl;     /* step size. 1/cm */
 
@@ -674,7 +693,7 @@ void HopInGlass(InputStruct  * In_Ptr,
     } else {
         StepSizeInGlass(Photon_Ptr, In_Ptr);
         Hop(Photon_Ptr);
-        CrossOrNot(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed);
+        CrossOrNot(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed, result, count);
     }
 }
 
@@ -695,18 +714,20 @@ void HopInGlass(InputStruct  * In_Ptr,
 void HopDropSpinInTissue(InputStruct  *  In_Ptr,
                          PhotonStruct *  Photon_Ptr,
                          OutStruct    *  Out_Ptr,
-                         unsigned int *  rand_seed)
+                         unsigned int *  rand_seed,
+                 int          *  result,
+                 char          *  count)
 {
-    StepSizeInTissue(Photon_Ptr, In_Ptr, rand_seed);
+    StepSizeInTissue(Photon_Ptr, In_Ptr, rand_seed, result, count);
 
     if(HitBoundary(Photon_Ptr, In_Ptr)) {
         Hop(Photon_Ptr);	/* move to boundary plane. */
-        CrossOrNot(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed);
+        CrossOrNot(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed, result, count);
     } else {
         Hop(Photon_Ptr);
         Drop(In_Ptr, Photon_Ptr, Out_Ptr);
         Spin(In_Ptr->layerspecs[Photon_Ptr->layer].g,
-             Photon_Ptr, rand_seed);
+             Photon_Ptr, rand_seed, result, count);
     }
 }
 
@@ -715,17 +736,19 @@ void HopDropSpinInTissue(InputStruct  *  In_Ptr,
 void HopDropSpin(InputStruct  *  In_Ptr,
                  PhotonStruct *  Photon_Ptr,
                  OutStruct    *  Out_Ptr,
-                 unsigned int *  rand_seed )
+                 unsigned int *  rand_seed,
+		 int 	      *  result,
+	         char          *  count)
 {
     short layer = Photon_Ptr->layer;
 
     if((In_Ptr->layerspecs[layer].mua == 0.0)
             && (In_Ptr->layerspecs[layer].mus == 0.0))
         /* glass layer. */
-        HopInGlass(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed);
+        HopInGlass(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed, result, count);
     else
-        HopDropSpinInTissue(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed);
+        HopDropSpinInTissue(In_Ptr, Photon_Ptr, Out_Ptr, rand_seed, result, count);
 
     if( Photon_Ptr->w < In_Ptr->Wth && !Photon_Ptr->dead)
-        Roulette(Photon_Ptr, rand_seed);
+        Roulette(Photon_Ptr, rand_seed, result, count);
 }
